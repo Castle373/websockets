@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Mensajero WebSocket</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f2f2f2;
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #fff;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            h2 {
+                margin-top: 0;
+            }
+            textarea {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                resize: vertical;
+            }
+            input[type="text"], input[type="button"] {
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+            input[type="button"] {
+                cursor: pointer;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+            }
+            input[type="button"]:hover {
+                background-color: #45a049;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th, td {
+                padding: 10px;
+                border: 1px solid #ddd;
+                text-align: left;
+            }
+            th {
+                background-color: #4CAF50;
+                color: white;
+            }
+            tr:nth-child(even) {
+                background-color: #f2f2f2;
+            }
+            ul {
+                list-style-type: none;
+                padding: 0;
+            }
+            ul li {
+                margin-bottom: 5px;
+            }
+        </style>
+        <script>
+            var ws = null;
+            var userList = [];
+
+            function updateUserList() {
+                var userListElement = document.getElementById("userList");
+                userListElement.innerHTML = "";
+                userList.forEach(function (user) {
+                    var listItem = document.createElement("li");
+                    listItem.textContent = user + " "; // Agrega un espacio adicional al final de cada nombre de usuario
+                    userListElement.appendChild(listItem);
+                    userListElement.appendChild(document.createElement("br"));
+                });
+
+
+            }
+            function sendMessage() {
+                var messageInput = document.getElementById("txtMsj");
+                var message = messageInput.value.trim();
+                if (message !== "") {
+                    ws.send(message);
+                    messageInput.value = "";
+                }
+            }
+            function enviarProducto() {
+                var nombre = document.getElementById("txtNombre").value.trim();
+                var precio = document.getElementById("txtPrecio").value.trim();
+
+                if (nombre !== "" && precio !== "") {
+                    var producto = {"nombre": nombre, "precio": precio};
+                    var jsonProducto = JSON.stringify(producto);
+                    ws.send(jsonProducto);
+
+                    // Limpiar los campos después de enviar el producto
+                    document.getElementById("txtNombre").value = "";
+                    document.getElementById("txtPrecio").value = "";
+                } else {
+                    alert("Por favor, completa todos los campos del producto.");
+                }
+            }
+            function connectWebSocket() {
+                var userName = prompt("Por favor, introduce tu nombre de usuario:");
+                if (userName !== null && userName.trim() !== "") {
+                    ws = new WebSocket("ws://localhost:8080/ServidorMensajes/mensajes");
+                    ws.onopen = function () {
+                        ws.send(userName.trim());
+                        document.getElementById("txtMsjs").value = "Conectado como " + userName.trim() + "\n";
+                    };
+                    ws.onmessage = function (evt) {
+                        var receivedMsg = evt.data;
+                        if (receivedMsg.startsWith("LIMPIAR")) {
+                           clearProductTable();
+                        }
+                        else if (receivedMsg.startsWith("{")) {
+                            try {
+
+                                var product = JSON.parse(receivedMsg);
+                                fillProductTable([product]);
+
+                            } catch (error) {
+
+                            }
+                        } else if (receivedMsg.startsWith("Usuarios conectados:")) {
+                            userList = receivedMsg.substring("Usuarios conectados:".length).split(", ");
+                            updateUserList();
+                        } else {
+                            var txtMsjs = document.getElementById("txtMsjs");
+                            txtMsjs.value += receivedMsg + "\n";
+                        }
+
+                    };
+                    ws.onclose = function () {
+                        alert("La conexión se ha cerrado");
+                    };
+                } else {
+                    alert("Por favor, introduce un nombre de usuario válido.");
+                }
+            }
+
+            function fillProductTable(data) {
+                var tableBody = document.getElementById("productTableBody");
+                data.forEach(function (product) {
+                    var row = tableBody.insertRow();
+                    var cell1 = row.insertCell(0);
+                    var cell2 = row.insertCell(1);
+                    cell1.textContent = product.nombre;
+                    cell2.textContent = product.precio;
+                });
+            }
+            function clearProductTable() {
+                var tableBody = document.getElementById("productTableBody");
+                tableBody.innerHTML = "";
+            }
+
+
+            window.onload = function () {
+                connectWebSocket();
+                fillProductTable(jsonData);
+            };
+
+        </script>
+    </head>
+    <body>
+        <h2>Usuarios Conectados</h2>
+        <ul id="userList"></ul>
+        <hr>
+        <h2>Mensajes</h2>
+        <textarea id="txtMsjs" rows="10" cols="50"></textarea>
+        <br>
+        Mensaje: <input type="text" id="txtMsj" />
+        <input type="button" value="Enviar" onclick="sendMessage()" />
+        <hr>
+        <h2>Producto</h2>
+        Nombre: <input type="text" id="txtNombre" />
+        Precio: <input type="text" id="txtPrecio" />
+        <input type="button" value="Subir" onclick="enviarProducto()" />
+        <br>
+
+        <h2>Tabla de Productos</h2>
+
+        <table id="productTable" border="1">
+            <thead>
+                <tr>
+                    <th>Nombre del Producto</th>
+                    <th>Precio</th>
+                </tr>
+            </thead>
+            <tbody id="productTableBody">
+                <!-- La tabla de productos se llenará dinámicamente con JavaScript -->
+            </tbody>
+        </table>
+    </body>
+</html>
